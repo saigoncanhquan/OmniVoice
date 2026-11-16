@@ -27,4 +27,7 @@ examples/download*
 examples/exp*
 .claude/
 *.wav
+!VoiceTemplate/*.wav
+outputs/
+VoiceTemplate/output/
 *.jsonl
