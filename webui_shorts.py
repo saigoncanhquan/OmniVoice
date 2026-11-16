@@ -38,6 +38,8 @@ os.makedirs("outputs", exist_ok=True)
 SCRIPT_DIR = Path(__file__).parent.resolve()
 DEFAULT_VOICE_PATH = SCRIPT_DIR / "VoiceTemplate" / "GiọngNam.wav"
 DEFAULT_VOICE_FAST_PATH = SCRIPT_DIR / "VoiceTemplate" / "giong_nam_ref_4s.wav"
+DEFAULT_VOICE_FEMALE_PATH = SCRIPT_DIR / "VoiceTemplate" / "GiọngNữ.wav"
+DEFAULT_VOICE_FEMALE_FAST_PATH = SCRIPT_DIR / "VoiceTemplate" / "giong_nu_ref_5s.wav"
 SAMPLE_TEXT_PATH = SCRIPT_DIR / "VoiceTemplate" / "hdsd_Untube.txt"
 
 # 3. Import backend engine
@@ -75,6 +77,7 @@ def process_tts(
     speed,
     pause_duration,
     pitch_consistent,
+    mastering_enabled,
     num_steps,
     guidance_scale,
     progress=gr.Progress(track_tqdm=True)
@@ -88,17 +91,27 @@ def process_tts(
 
     # Xác định voice mode
     ref_audio = None
-    if voice_choice == "Giọng Nam TikTok (Chuẩn AI sạch)":
+    if "Giọng Nam TikTok" in voice_choice:
         voice_mode = "design_male"
-    elif voice_choice == "Giọng Nữ TikTok (Chuẩn AI sạch)":
+    elif "Giọng Nữ TikTok" in voice_choice:
         voice_mode = "design_female"
-    elif voice_choice == "Giọng Nam Clone Nhanh 4s (Tối ưu CPU)":
+    elif "Giọng Nam Truyền Cảm" in voice_choice:
+        voice_mode = "design_storyteller"
+    elif "Giọng Nữ Năng Động" in voice_choice:
+        voice_mode = "design_tiktok_energetic"
+    elif "Giọng Nam Clone Nhanh 4s" in voice_choice:
         voice_mode = "clone"
         ref_audio = str(DEFAULT_VOICE_FAST_PATH)
-    elif voice_choice == "Giọng Nam Clone (từ GiọngNam.wav)":
+    elif "Giọng Nam Clone Studio" in voice_choice or "từ GiọngNam.wav" in voice_choice:
         voice_mode = "clone"
         ref_audio = str(DEFAULT_VOICE_PATH)
-    elif voice_choice == "Upload Giọng Mẫu Riêng (Custom Clone)":
+    elif "Giọng Nữ Clone Nhanh 5s" in voice_choice:
+        voice_mode = "clone"
+        ref_audio = str(DEFAULT_VOICE_FEMALE_FAST_PATH)
+    elif "Giọng Nữ Clone Chuẩn" in voice_choice:
+        voice_mode = "clone"
+        ref_audio = str(DEFAULT_VOICE_FEMALE_PATH)
+    elif "Upload Giọng Mẫu Riêng" in voice_choice:
         voice_mode = "clone"
         if not custom_voice or not os.path.exists(custom_voice):
             raise gr.Error("Vui lòng tải lên file âm thanh mẫu để clone giọng!")
@@ -120,6 +133,7 @@ def process_tts(
         num_step=int(num_steps),
         guidance_scale=float(guidance_scale),
         pitch_consistency=bool(pitch_consistent),
+        mastering=bool(mastering_enabled),
         output_basename=out_basename
     )
 
@@ -193,13 +207,17 @@ def build_ui():
                     voice_choice = gr.Dropdown(
                         label="Giọng đọc tuyển chọn cho TikTok / Shorts",
                         choices=[
-                            "Giọng Nam TikTok (Chuẩn AI sạch)",
-                            "Giọng Nữ TikTok (Chuẩn AI sạch)",
+                            "Giọng Nam TikTok (Chuẩn AI sạch - Studio Male)",
+                            "Giọng Nữ TikTok (Chuẩn AI sạch - Studio Female)",
+                            "Giọng Nam Truyền Cảm (Storyteller / Podcast)",
+                            "Giọng Nữ Năng Động (Energetic TikTok Shorts)",
                             "Giọng Nam Clone Nhanh 4s (Tối ưu CPU)",
-                            "Giọng Nam Clone (từ GiọngNam.wav)",
+                            "Giọng Nam Clone Studio (GiọngNam.wav)",
+                            "Giọng Nữ Clone Chuẩn (GiọngNữ.wav)",
+                            "Giọng Nữ Clone Nhanh 5s (giong_nu_ref_5s.wav)",
                             "Upload Giọng Mẫu Riêng (Custom Clone)"
                         ],
-                        value="Giọng Nam TikTok (Chuẩn AI sạch)",
+                        value="Giọng Nam TikTok (Chuẩn AI sạch - Studio Male)",
                         interactive=True
                     )
                     custom_voice = gr.Audio(
@@ -239,6 +257,11 @@ def build_ui():
                         label="🔒 Khóa đồng nhất cao độ & âm sắc (Pitch Consistency)",
                         value=True,
                         info="Giúp toàn bộ các câu trong video giữ đúng một chất giọng và cao độ đồng đều, không bị đổi giọng giữa các câu."
+                    )
+                    mastering_toggle = gr.Checkbox(
+                        label="🎚️ Studio Vocal Mastering & Voice Leveling (Mastering chuẩn phòng thu)",
+                        value=True,
+                        info="Khử ù 80Hz, EQ làm sáng giọng, san phẳng âm lượng câu và lấp phòng chống ngắt quãng."
                     )
 
                     with gr.Accordion("⚙️ Cài Đặt Nâng Cao (Diffusion Steps)", open=False):
@@ -307,6 +330,7 @@ def build_ui():
                 speed_slider,
                 pause_slider,
                 pitch_toggle,
+                mastering_toggle,
                 num_steps,
                 guidance_scale
             ],

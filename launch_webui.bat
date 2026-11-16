@@ -8,14 +8,16 @@ REM =====================================================================
 set "HF_FOUND="
 set "HF_HUB_DISABLE_SYMLINKS_WARNING=1"
 
-if exist "%USERPROFILE%\.cache\huggingface\hub\models--k2-fsa--OmniVoice" (
-    set "HF_HOME=%USERPROFILE%\.cache\huggingface"
+REM 1. Uu tien tim kiem model tai D:\temp_OmniVoice\hf_cache de tiet kiem o C:
+if exist "D:\temp_OmniVoice\hf_cache\hub\models--k2-fsa--OmniVoice" (
+    set "HF_HOME=D:\temp_OmniVoice\hf_cache"
     set "HF_FOUND=1"
 )
 
+REM 2. Neu D: chua co, kiem tra thu muc cache mac dinh cua he thong tai %USERPROFILE%
 if not defined HF_FOUND (
-    if exist "D:\temp_OmniVoice\hf_cache\hub\models--k2-fsa--OmniVoice" (
-        set "HF_HOME=D:\temp_OmniVoice\hf_cache"
+    if exist "%USERPROFILE%\.cache\huggingface\hub\models--k2-fsa--OmniVoice" (
+        set "HF_HOME=%USERPROFILE%\.cache\huggingface"
         set "HF_FOUND=1"
     )
 )

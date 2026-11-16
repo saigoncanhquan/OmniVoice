@@ -28,6 +28,7 @@ except ImportError:
 
 from omnivoice.models.omnivoice import OmniVoice, VoiceClonePrompt
 from omnivoice.utils.common import get_best_device
+from omnivoice.audio_dsp import master_vocal_pipeline, get_active_speech_rms
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,12 @@ DEFAULT_GIONGNAM_TRANSCRIPT = (
     "phát triển bởi tổ chức k2-fsa hỗ trợ hơn 600 ngôn ngữ trên toàn thế giới bao gồm tiếng Việt "
     "tiếng Anh tiếng Trung tiếng Nhật ứng dụng kiến trúc diffusion language model với tốc độ xử lý "
     "nhanh và độ tự nhiên cao."
+)
+
+DEFAULT_GIONGNU_TRANSCRIPT = (
+    "Biến file CAD 3D nặng trịch thành trang web tương tác gửi thẳng qua Zalo chỉ trong 5 giây! "
+    "Lấy bất kỳ mẫu nào từ GrabCAD, xuất qua chuẩn OBJ bằng SolidWorks, "
+    "Inventor, ZW3D hoặc Rhino. Mở Untube 3D,"
 )
 
 
@@ -178,6 +185,11 @@ class TikTokTTSEngine:
                     ref_text = "OmniVoice là mô hình text to speech TTS và voice cloning sao chép giọng zero shot thế hệ mới"
                 else:
                     ref_text = DEFAULT_GIONGNAM_TRANSCRIPT
+            elif any(k in norm_path for k in ["giọngnữ", "giongnu", "giong_nu", "giọng_nữ"]):
+                if "5s" in norm_path:
+                    ref_text = "Biến file CAD 3D nặng trịch thành trang web tương tác gửi thẳng qua Zalo chỉ trong 5 giây!"
+                else:
+                    ref_text = DEFAULT_GIONGNU_TRANSCRIPT
             elif "test_short" in norm_path:
                 ref_text = "OmniVoice là mô hình text to speech TTS và voice cloning"
             else:
@@ -209,7 +221,7 @@ class TikTokTTSEngine:
     def synthesize_script(
         self,
         script_text: str,
-        voice_mode: str = "design_male",  # "design_male", "design_female", "clone"
+        voice_mode: str = "design_male",  # "design_male", "design_female", "design_storyteller", "design_tiktok_energetic", "clone"
         ref_audio_path: Optional[str] = None,
         ref_text: Optional[str] = None,
         speed: float = 1.15,
@@ -218,11 +230,20 @@ class TikTokTTSEngine:
         guidance_scale: float = 2.0,
         pitch_consistency: bool = True,
         seed: int = 42,
+        mastering: bool = True,
+        target_rms: float = 0.105,
+        highpass_cutoff: float = 80.0,
+        demud_gain_db: float = -2.2,
+        presence_gain_db: float = 1.8,
+        peak_ceiling_db: float = -1.0,
+        enable_room_tone: bool = True,
         output_basename: str = "tiktok_audio",
     ) -> Dict[str, Any]:
         """Synthesize script text with unified pitch and timbre across all sentences.
 
         Key optimizations for consistent timbre:
+        - Studio Vocal Mastering & leveling pipeline
+        - denoise=True eliminating diffusion room noise / hiss
         - Deterministic seed across chunks (or shared batch)
         - position_temperature = 0.0 to prevent random pitch drifting
         - Explicit pitch anchor: 'moderate pitch'
@@ -232,20 +253,30 @@ class TikTokTTSEngine:
         if not chunks:
             raise ValueError("Input script contains no readable text.")
 
-        logger.info(f"Synthesizing {len(chunks)} chunks with voice_mode='{voice_mode}', pitch_consistency={pitch_consistency}")
+        logger.info(
+            f"Synthesizing {len(chunks)} chunks with voice_mode='{voice_mode}', "
+            f"pitch_consistency={pitch_consistency}, mastering={mastering}"
+        )
+
+        if ref_audio_path and voice_mode == "design_male":
+            voice_mode = "clone"
 
         instruct_str = None
         clone_prompt = None
         if voice_mode == "design_male":
-            instruct_str = "male, young adult, moderate pitch"
+            instruct_str = "male, young adult, moderate pitch, clear and natural tone"
         elif voice_mode == "design_female":
-            instruct_str = "female, young adult, moderate pitch"
+            instruct_str = "female, young adult, moderate pitch, warm and clear tone"
+        elif voice_mode == "design_storyteller":
+            instruct_str = "male, middle-aged, low pitch, warm and resonant, storytelling tone"
+        elif voice_mode == "design_tiktok_energetic":
+            instruct_str = "female, young adult, high pitch, energetic and bright, fast pace"
         elif voice_mode == "clone":
             if not ref_audio_path or not os.path.exists(ref_audio_path):
                 raise ValueError(f"Reference audio not found: {ref_audio_path}")
             clone_prompt = self.prepare_voice_clone(ref_audio_path, ref_text=ref_text)
         else:
-            instruct_str = "male, young adult, moderate pitch"
+            instruct_str = "male, young adult, moderate pitch, clear and natural tone"
 
         # Position temperature: 0.0 locks greedy token unmasking -> eliminates pitch drift
         pos_temp = 0.0 if pitch_consistency else 5.0
@@ -266,7 +297,7 @@ class TikTokTTSEngine:
             gen_kwargs = {
                 "text": batch_chunks if b_len > 1 else batch_chunks[0],
                 "language": ["vi"] * b_len if b_len > 1 else "vi",
-                "denoise": False,
+                "denoise": True,
                 "num_step": num_step,
                 "guidance_scale": guidance_scale,
                 "speed": [speed] * b_len if b_len > 1 else speed,
@@ -287,33 +318,58 @@ class TikTokTTSEngine:
 
         # Concatenate audio chunks and calculate accurate SRT timestamps
         pause_samples = int(self.sampling_rate * max(0.02, pause_between_chunks))
-        silence_padding = np.zeros(pause_samples, dtype=np.float32)
 
-        combined_audio = []
-        segments = []
-        current_time = 0.0
-
-        for idx, (chunk_text, wav) in enumerate(zip(chunks, chunk_waveforms)):
-            chunk_duration = len(wav) / self.sampling_rate
-            seg_start = current_time
-            seg_end = current_time + chunk_duration
-
-            segments.append({
-                "index": idx + 1,
-                "start": seg_start,
-                "end": seg_end,
-                "duration": chunk_duration,
-                "text": chunk_text,
-            })
-
-            combined_audio.append(wav)
-            if idx < len(chunks) - 1:
-                combined_audio.append(silence_padding)
-                current_time = seg_end + (pause_samples / self.sampling_rate)
-            else:
-                current_time = seg_end
-
-        final_waveform = np.concatenate(combined_audio, axis=0)
+        if mastering:
+            logger.info("Applying Studio Vocal Mastering & Voice Leveling pipeline...")
+            final_waveform, chunk_durations = master_vocal_pipeline(
+                chunk_waveforms=chunk_waveforms,
+                sample_rate=self.sampling_rate,
+                pause_duration_s=pause_between_chunks,
+                target_rms=target_rms,
+                highpass_cutoff=highpass_cutoff,
+                demud_freq=300.0,
+                demud_gain_db=demud_gain_db,
+                presence_freq=3600.0,
+                presence_gain_db=presence_gain_db,
+                peak_ceiling_db=peak_ceiling_db,
+                enable_room_tone=enable_room_tone,
+            )
+            segments = []
+            current_time = 0.0
+            for idx, (chunk_text, dur) in enumerate(zip(chunks, chunk_durations)):
+                seg_start = current_time
+                seg_end = current_time + dur
+                segments.append({
+                    "index": idx + 1,
+                    "start": seg_start,
+                    "end": seg_end,
+                    "duration": dur,
+                    "text": chunk_text,
+                })
+                current_time = seg_end + pause_between_chunks
+        else:
+            silence_padding = np.zeros(pause_samples, dtype=np.float32)
+            combined_audio = []
+            segments = []
+            current_time = 0.0
+            for idx, (chunk_text, wav) in enumerate(zip(chunks, chunk_waveforms)):
+                chunk_duration = len(wav) / self.sampling_rate
+                seg_start = current_time
+                seg_end = current_time + chunk_duration
+                segments.append({
+                    "index": idx + 1,
+                    "start": seg_start,
+                    "end": seg_end,
+                    "duration": chunk_duration,
+                    "text": chunk_text,
+                })
+                combined_audio.append(wav)
+                if idx < len(chunks) - 1:
+                    combined_audio.append(silence_padding)
+                    current_time = seg_end + (pause_samples / self.sampling_rate)
+                else:
+                    current_time = seg_end
+            final_waveform = np.concatenate(combined_audio, axis=0)
 
         # Save temporary wav
         out_wav_path = os.path.join(self.temp_dir, f"{output_basename}.wav")

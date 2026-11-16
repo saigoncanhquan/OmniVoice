@@ -9,8 +9,9 @@
 - **Vị trí dự án:** `D:\Drive\Store3\My Drive\Apps\OmniVoice` (Đang chạy trên Google Drive kết nối 4G).
 - **Thư mục lưu trữ tác vụ nặng & Temp:** `D:\temp_OmniVoice\`
   - Toàn bộ file âm thanh tạm thời, cache gradio, cache torch và pycache đều được chuyển hướng về đây để **bảo vệ dung lượng Google Drive và tiết kiệm tối đa dữ liệu mạng 4G**.
-- **HuggingFace Cache:** `C:\Users\Admin\.cache\huggingface`
-  - Đã nạp sẵn checkpoint `k2-fsa/OmniVoice` (~3.26 GB) và `openai/whisper-tiny`. Trình khởi động sẽ tự động nhận diện cache có sẵn và tuyệt đối không tải lại.
+- **HuggingFace Cache:** Đã lưu trữ tại `D:\temp_OmniVoice\hf_cache` (và liên kết Junction từ `C:\Users\Admin\.cache\huggingface` để giải phóng hoàn toàn ổ C:).
+  - Checkpoint `k2-fsa/OmniVoice` (~3.26 GB) và `openai/whisper-tiny` đã sẵn sàng trên ổ D:. Trình khởi động sẽ tự động nhận diện cache có sẵn và tuyệt đối không tải lại.
+  - Khi sang máy khác: Nếu máy khác có ổ D: và thư mục `D:\temp_OmniVoice\hf_cache`, ứng dụng sẽ tự động nhận diện. Nếu không có ổ D:, ứng dụng tự động dùng cache mặc định của Windows (`%USERPROFILE%\.cache\huggingface`).
 - **Phần cứng hiện tại:** CPU Intel Core i5-7500T (4 Cores / 4 Threads), 32 GB RAM. Đã tối ưu hóa biến môi trường đa luồng PyTorch (`OMP_NUM_THREADS=4`, `MKL_NUM_THREADS=4`).
 - **Môi trường Python:** Python 3.13 và `.venv` nội bộ đã được cấu hình liên kết thư viện hệ thống đầy đủ (`torch 2.14.0+cpu`, `torchaudio`, `transformers`, `gradio`, `soundfile`, `librosa`, `num2words`, `ffmpeg`).
 - **Kho lưu trữ GitHub:** `https://github.com/saigoncanhquan/OmniVoice.git`
