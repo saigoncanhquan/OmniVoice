@@ -1,5 +1,6 @@
 Biến file CAD 3D nặng trịch thành trang web tương tác gửi thẳng qua Zalo chỉ trong 5 giây!
-Lấy bất kỳ mẫu nào từ GrabCAD, xuất qua chuẩn `OBJ` bằng SolidWorks, Inventor, ZW3D hoặc Rhino.
-Mở  Untube 3D , kéo file vào và bấm chuyển đổi — công cụ tự đóng gói toàn bộ hình học và màu sắc vào đúng một file `HTML` siêu nhẹ.
-Gửi qua Zalo, Email hay đưa lên web đều được. Người nhận mở thẳng trên trình duyệt điện thoại hoặc PC, tự do xoay góc nhìn, soi từng con ốc và kéo bung lắp ráp 3D cực mượt mà không cần cài thêm bất kỳ phần mềm nào.
+Lấy bất kỳ mẫu nào từ GrabCAD, xuất qua chuẩn `O B J` bằng SolidWorks, Inventor, ZW3D hoặc Rhino.
+Mở  Untube 3D , kéo file vào và bấm chuyển đổi, công cụ tự đóng gói toàn bộ hình học và màu sắc vào đúng một file `HTML` siêu nhẹ.
+Gửi qua Zalo, Email hay đưa lên web đều được. 
+Người nhận mở thẳng trên trình duyệt điện thoại hoặc PC, tự do xoay góc nhìn, soi từng con ốc và kéo bung lắp ráp 3D cực mượt mà không cần cài thêm bất kỳ phần mềm nào.
 Tải về dùng miễn phí ngay trên ExcelCappy!

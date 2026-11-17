@@ -8,16 +8,16 @@ REM =====================================================================
 set "HF_FOUND="
 set "HF_HUB_DISABLE_SYMLINKS_WARNING=1"
 
-REM 1. Uu tien tim kiem model tai D:\temp_OmniVoice\hf_cache de tiet kiem o C:
-if exist "D:\temp_OmniVoice\hf_cache\hub\models--k2-fsa--OmniVoice" (
-    set "HF_HOME=D:\temp_OmniVoice\hf_cache"
+REM 1. Uu tien tim kiem model tai cache he thong %USERPROFILE% noi co du weights
+if exist "%USERPROFILE%\.cache\huggingface\hub\models--k2-fsa--OmniVoice" (
+    set "HF_HOME=%USERPROFILE%\.cache\huggingface"
     set "HF_FOUND=1"
 )
 
-REM 2. Neu D: chua co, kiem tra thu muc cache mac dinh cua he thong tai %USERPROFILE%
+REM 2. Neu he thong chua co, kiem tra D:\temp_OmniVoice\hf_cache
 if not defined HF_FOUND (
-    if exist "%USERPROFILE%\.cache\huggingface\hub\models--k2-fsa--OmniVoice" (
-        set "HF_HOME=%USERPROFILE%\.cache\huggingface"
+    if exist "D:\temp_OmniVoice\hf_cache\hub\models--k2-fsa--OmniVoice" (
+        set "HF_HOME=D:\temp_OmniVoice\hf_cache"
         set "HF_FOUND=1"
     )
 )
@@ -26,6 +26,12 @@ if not defined HF_FOUND (
     if exist "D:\" (
         set "HF_HOME=D:\temp_OmniVoice\hf_cache"
     )
+)
+
+REM Kich hoat OFFLINE neu model da co san
+if defined HF_FOUND (
+    set "HF_HUB_OFFLINE=1"
+    set "TRANSFORMERS_OFFLINE=1"
 )
 
 if exist "D:\" (
@@ -43,6 +49,8 @@ if exist "D:\" (
 
 set "OMP_NUM_THREADS=4"
 set "MKL_NUM_THREADS=4"
+set "KMP_BLOCKTIME=1"
+set "KMP_AFFINITY=granularity=fine,compact,1,0"
 
 echo ======================================================================
 echo   OMNIVOICE - ZERO-SHOT MULTILINGUAL TTS & VOICE CLONING (k2-fsa)

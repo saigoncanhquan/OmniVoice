@@ -155,6 +155,10 @@ class TikTokTTSEngine:
         self.device = device or get_best_device()
         if not str(self.device).startswith("cuda"):
             torch.set_num_threads(os.cpu_count() or 4)
+            try:
+                torch.set_num_interop_threads(1)
+            except Exception:
+                pass
         logger.info(f"Initializing TikTokTTSEngine on {self.device}...")
         self.model = OmniVoice.from_pretrained(
             model_name_or_path,
@@ -165,6 +169,7 @@ class TikTokTTSEngine:
         self._cached_prompt: Optional[VoiceClonePrompt] = None
         self._cached_prompt_audio_path: Optional[str] = None
 
+    @torch.inference_mode()
     def prepare_voice_clone(
         self,
         ref_audio_path: str,
@@ -195,8 +200,9 @@ class TikTokTTSEngine:
             else:
                 try:
                     from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
-                    processor = AutoProcessor.from_pretrained("openai/whisper-tiny")
-                    m_whisper = AutoModelForSpeechSeq2Seq.from_pretrained("openai/whisper-tiny")
+                    # Ensure local offline files only, never download over slow/metered connection
+                    processor = AutoProcessor.from_pretrained("openai/whisper-tiny", local_files_only=True)
+                    m_whisper = AutoModelForSpeechSeq2Seq.from_pretrained("openai/whisper-tiny", local_files_only=True)
                     pipe = pipeline(
                         "automatic-speech-recognition",
                         model=m_whisper,
@@ -218,6 +224,7 @@ class TikTokTTSEngine:
         self._cached_prompt_audio_path = ref_audio_path
         return prompt
 
+    @torch.inference_mode()
     def synthesize_script(
         self,
         script_text: str,
@@ -226,7 +233,8 @@ class TikTokTTSEngine:
         ref_text: Optional[str] = None,
         speed: float = 1.15,
         pause_between_chunks: float = 0.08,
-        num_step: int = 24,
+        num_step: Optional[int] = None,
+        batch_size: Optional[int] = None,
         guidance_scale: float = 2.0,
         pitch_consistency: bool = True,
         seed: int = 42,
@@ -241,7 +249,10 @@ class TikTokTTSEngine:
     ) -> Dict[str, Any]:
         """Synthesize script text with unified pitch and timbre across all sentences.
 
-        Key optimizations for consistent timbre:
+        Key optimizations for consistent timbre and CPU performance:
+        - torch.inference_mode() for zero autograd / tracking overhead
+        - batch_size=1 on CPU to avoid padded attention matrix expansion
+        - num_step=16 default on CPU for ultra-fast generation (24 on GPU)
         - Studio Vocal Mastering & leveling pipeline
         - denoise=True eliminating diffusion room noise / hiss
         - Deterministic seed across chunks (or shared batch)
@@ -253,9 +264,14 @@ class TikTokTTSEngine:
         if not chunks:
             raise ValueError("Input script contains no readable text.")
 
+        is_cuda = str(self.device).startswith("cuda")
+        if num_step is None:
+            num_step = 24 if is_cuda else 16
+
         logger.info(
             f"Synthesizing {len(chunks)} chunks with voice_mode='{voice_mode}', "
-            f"pitch_consistency={pitch_consistency}, mastering={mastering}"
+            f"pitch_consistency={pitch_consistency}, mastering={mastering}, "
+            f"num_step={num_step}, device={self.device}"
         )
 
         instruct_str = None
@@ -278,8 +294,10 @@ class TikTokTTSEngine:
         # Position temperature: 0.0 locks greedy token unmasking -> eliminates pitch drift
         pos_temp = 0.0 if pitch_consistency else 5.0
 
-        # Batch synthesis: 2 for CPU to save RAM & compute, 4 for GPU
-        batch_size = 2 if not str(self.device).startswith("cuda") else 4
+        # Batch synthesis: CPU runs much faster sequentially with batch_size=1
+        # without computing large 2x padded attention matrices. GPU uses batch_size=4.
+        if batch_size is None:
+            batch_size = 4 if is_cuda else 1
         chunk_waveforms = []
 
         for i in range(0, len(chunks), batch_size):

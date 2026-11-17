@@ -272,7 +272,25 @@ def _resolve_model_path(name_or_path: str) -> str:
         return name_or_path
     from huggingface_hub import snapshot_download
 
-    return snapshot_download(name_or_path)
+    # Fast offline path: if offline flags are set or files exist in local cache,
+    # avoid any network checks or 4G data usage.
+    is_offline = (
+        os.environ.get("HF_HUB_OFFLINE") == "1"
+        or os.environ.get("TRANSFORMERS_OFFLINE") == "1"
+    )
+
+    try:
+        return snapshot_download(name_or_path, local_files_only=True)
+    except Exception as e:
+        if is_offline:
+            logger.warning(
+                "Offline mode is active and '%s' was not found in local cache: %s",
+                name_or_path,
+                e,
+            )
+            raise
+        logger.info("Model '%s' not found locally in cache, downloading from HuggingFace...", name_or_path)
+        return snapshot_download(name_or_path)
 
 
 class OmniVoice(PreTrainedModel):

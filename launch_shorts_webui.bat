@@ -8,19 +8,19 @@ REM =====================================================================
 set "HF_FOUND="
 set "HF_HUB_DISABLE_SYMLINKS_WARNING=1"
 
-REM 1.1 Uu tien tim kiem model tai D:\temp_OmniVoice\hf_cache de tiet kiem o C:
-if exist "D:\temp_OmniVoice\hf_cache\hub\models--k2-fsa--OmniVoice" (
-    echo [THONG TIN] Phat hien model OmniVoice co san tai D:\temp_OmniVoice\hf_cache
-    set "HF_HOME=D:\temp_OmniVoice\hf_cache"
+REM 1.1 Uu tien he thong cache tai %USERPROFILE%\.cache\huggingface noi da co du model va weights
+if exist "%USERPROFILE%\.cache\huggingface\hub\models--k2-fsa--OmniVoice" (
+    echo [THONG TIN] Phat hien model OmniVoice tai cache he thong:
+    echo             %USERPROFILE%\.cache\huggingface
+    set "HF_HOME=%USERPROFILE%\.cache\huggingface"
     set "HF_FOUND=1"
 )
 
-REM 1.2 Neu D: chua co, kiem tra thu muc cache mac dinh cua he thong tai %USERPROFILE%
+REM 1.2 Neu cache he thong chua co, kiem tra tai D:\temp_OmniVoice\hf_cache
 if not defined HF_FOUND (
-    if exist "%USERPROFILE%\.cache\huggingface\hub\models--k2-fsa--OmniVoice" (
-        echo [THONG TIN] Phat hien model OmniVoice co san tai cache he thong:
-        echo             %USERPROFILE%\.cache\huggingface
-        set "HF_HOME=%USERPROFILE%\.cache\huggingface"
+    if exist "D:\temp_OmniVoice\hf_cache\hub\models--k2-fsa--OmniVoice" (
+        echo [THONG TIN] Phat hien model OmniVoice co san tai D:\temp_OmniVoice\hf_cache
+        set "HF_HOME=D:\temp_OmniVoice\hf_cache"
         set "HF_FOUND=1"
     )
 )
@@ -32,6 +32,13 @@ if not defined HF_FOUND (
     ) else (
         echo [THONG TIN] Dung thu muc cache mac dinh cua he thong.
     )
+)
+
+REM 1.3 Kich hoat che do OFFLINE bao ve mang 4G va chong treo he thong khi da co cache local
+if defined HF_FOUND (
+    echo [THONG TIN] Kich hoat che do OFFLINE bao ve 4G (HF_HUB_OFFLINE=1, TRANSFORMERS_OFFLINE=1)
+    set "HF_HUB_OFFLINE=1"
+    set "TRANSFORMERS_OFFLINE=1"
 )
 
 REM 1.3 Dieu huong toan bo tac vu nang, cache temp ra D:\temp_OmniVoice de tiet kiem 4G va Google Drive
@@ -117,7 +124,9 @@ if not errorlevel 1 (
 ) else (
     set "OMP_NUM_THREADS=4"
     set "MKL_NUM_THREADS=4"
-    set "HW_INFO=CPU Multi-Core Optimized (OMP/MKL=4)"
+    set "KMP_BLOCKTIME=1"
+    set "KMP_AFFINITY=granularity=fine,compact,1,0"
+    set "HW_INFO=Intel CPU Multi-Core Optimized (OMP/MKL=4, KMP_AFFINITY=compact)"
 )
 
 echo ======================================================================
