@@ -119,38 +119,44 @@ def process_tts(
     else:
         voice_mode = "design_male"
 
-    progress(0.2, desc="Đang tổng hợp giọng nói nhịp điệu TikTok...")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_basename = f"tiktok_gen_{timestamp}"
+    try:
+        progress(0.2, desc="Đang tổng hợp giọng nói nhịp điệu TikTok...")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_basename = f"tiktok_gen_{timestamp}"
 
-    # Gọi synthesize_script từ TikTokTTSEngine
-    result = engine.synthesize_script(
-        script_text=text,
-        voice_mode=voice_mode,
-        ref_audio_path=ref_audio,
-        speed=float(speed),
-        pause_between_chunks=float(pause_duration),
-        num_step=int(num_steps),
-        guidance_scale=float(guidance_scale),
-        pitch_consistency=bool(pitch_consistent),
-        mastering=bool(mastering_enabled),
-        output_basename=out_basename
-    )
+        # Gọi synthesize_script từ TikTokTTSEngine
+        result = engine.synthesize_script(
+            script_text=text,
+            voice_mode=voice_mode,
+            ref_audio_path=ref_audio,
+            speed=float(speed),
+            pause_between_chunks=float(pause_duration),
+            num_step=int(num_steps),
+            guidance_scale=float(guidance_scale),
+            pitch_consistency=bool(pitch_consistent),
+            mastering=bool(mastering_enabled),
+            output_basename=out_basename
+        )
 
-    full_audio_path = result["audio_path"]
-    srt_path = result["srt_path"]
-    duration = result.get("duration", 0.0)
-    segments = result.get("segments", [])
+        full_audio_path = result["audio_path"]
+        srt_path = result["srt_path"]
+        duration = result.get("duration", 0.0)
+        segments = result.get("segments", [])
 
-    # Đọc nội dung file SRT để hiển thị preview
-    srt_content = ""
-    if os.path.exists(srt_path):
-        with open(srt_path, "r", encoding="utf-8") as f:
-            srt_content = f.read()
+        # Đọc nội dung file SRT để hiển thị preview
+        srt_content = ""
+        if os.path.exists(srt_path):
+            with open(srt_path, "r", encoding="utf-8") as f:
+                srt_content = f.read()
 
-    info_msg = f"✨ **Hoàn thành xuất sắc!**\n- Thời lượng tổng: **{duration:.2f}s**\n- Số câu / phân đoạn: **{len(segments)}**\n- File lưu tạm tại: `{full_audio_path}`"
+        info_msg = f"✨ **Hoàn thành xuất sắc!**\n- Thời lượng tổng: **{duration:.2f}s**\n- Số câu / phân đoạn: **{len(segments)}**\n- File lưu tạm tại: `{full_audio_path}`"
 
-    return full_audio_path, srt_content, srt_path, full_audio_path, info_msg
+        return full_audio_path, srt_content, srt_path, full_audio_path, info_msg
+    except Exception as e:
+        import traceback
+        err_detail = traceback.format_exc()
+        logger.error(f"Lỗi synthesize: {err_detail}")
+        raise gr.Error(f"Lỗi tổng hợp giọng: {str(e)}")
 
 def export_to_project_outputs(audio_path, srt_path):
     """Copy audio và srt từ temp sang thư mục outputs/ của dự án"""

@@ -258,25 +258,22 @@ class TikTokTTSEngine:
             f"pitch_consistency={pitch_consistency}, mastering={mastering}"
         )
 
-        if ref_audio_path and voice_mode == "design_male":
-            voice_mode = "clone"
-
         instruct_str = None
         clone_prompt = None
         if voice_mode == "design_male":
-            instruct_str = "male, young adult, moderate pitch, clear and natural tone"
+            instruct_str = "male, young adult, moderate pitch"
         elif voice_mode == "design_female":
-            instruct_str = "female, young adult, moderate pitch, warm and clear tone"
+            instruct_str = "female, young adult, moderate pitch"
         elif voice_mode == "design_storyteller":
-            instruct_str = "male, middle-aged, low pitch, warm and resonant, storytelling tone"
+            instruct_str = "male, middle-aged, low pitch"
         elif voice_mode == "design_tiktok_energetic":
-            instruct_str = "female, young adult, high pitch, energetic and bright, fast pace"
+            instruct_str = "female, young adult, high pitch"
         elif voice_mode == "clone":
             if not ref_audio_path or not os.path.exists(ref_audio_path):
                 raise ValueError(f"Reference audio not found: {ref_audio_path}")
             clone_prompt = self.prepare_voice_clone(ref_audio_path, ref_text=ref_text)
         else:
-            instruct_str = "male, young adult, moderate pitch, clear and natural tone"
+            instruct_str = "male, young adult, moderate pitch"
 
         # Position temperature: 0.0 locks greedy token unmasking -> eliminates pitch drift
         pos_temp = 0.0 if pitch_consistency else 5.0
